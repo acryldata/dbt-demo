@@ -1,0 +1,16 @@
+target/
+dbt_packages/
+logs/
+.env
+.venv/
+*.pyc
+.DS_Store
+
+# Local development files
+profiles.yml
+*.duckdb
+*.duckdb.wal
+
+# Claude Code files
+CLAUDE.md
+dbt_internal_packages/

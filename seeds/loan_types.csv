@@ -1,0 +1,4 @@
+loan_type_id,loan_type_name,description,typical_term_months,min_amount,max_amount
+1,Mortgage,Primary residence home loan,360,50000,1000000
+2,Home Equity,Home equity line of credit,120,10000,500000
+3,Personal,Personal unsecured loan,60,1000,50000

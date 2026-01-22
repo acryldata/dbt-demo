@@ -1,0 +1,11 @@
+loan_id,customer_id,loan_type_id,loan_amount,interest_rate,loan_start_date,loan_term_months,property_address,property_value
+L001,C101,1,250000,3.5,2023-01-15,360,"123 Main St, Austin TX",300000
+L002,C102,1,450000,3.75,2023-02-01,360,"456 Oak Ave, Austin TX",550000
+L003,C103,2,75000,4.25,2023-03-10,120,"789 Pine Rd, Austin TX",200000
+L004,C104,3,15000,8.5,2023-03-20,60,,
+L005,C105,1,320000,3.65,2023-04-05,360,"321 Elm St, Austin TX",400000
+L006,C106,2,50000,4.5,2023-05-12,120,"654 Cedar Ln, Austin TX",180000
+L007,C107,1,280000,3.8,2023-06-01,360,"987 Maple Dr, Austin TX",350000
+L008,C108,3,25000,9.0,2023-06-15,60,,
+L009,C109,1,195000,3.55,2023-07-10,360,"147 Birch Way, Austin TX",240000
+L010,C110,2,60000,4.35,2023-08-20,120,"258 Spruce Ct, Austin TX",190000
