@@ -36,24 +36,37 @@ monthly_originations as (
 
 **After (Buggy):**
 ```sql
-monthly_originations as (
+loan_duplicates as (
     select
-        date_trunc('month', loans.loan_start_date)::date as month_start,
+        loans.loan_id,
+        loans.loan_start_date,
         loans.loan_type_name,
-        count(loans.loan_id) as loans_originated,    -- ✗ Non-distinct count
-        sum(loans.loan_amount) as total_amount_originated,
-        avg(loans.loan_amount) as avg_loan_amount,
-        avg(loans.interest_rate) as avg_interest_rate
+        loans.loan_amount,
+        loans.interest_rate,
+        duplicate_loans.loan_id as duplicate_loan_id
     from loans
     cross join loans as duplicate_loans              -- ✗ CROSS JOIN creates Cartesian product
-    group by 1, 2
+),
+
+monthly_originations as (
+    select
+        date_trunc('month', loan_start_date)::date as month_start,
+        loan_type_name,
+        duplicate_loan_id,                           -- ✗ Groups by each duplicate
+        count(loan_id) as loans_originated,
+        sum(loan_amount) as total_amount_originated,
+        avg(loan_amount) as avg_loan_amount,
+        avg(interest_rate) as avg_interest_rate
+    from loan_duplicates
+    group by 1, 2, 3                                 -- ✗ Creates 10 rows per original loan
 ),
 ```
 
 ### What Changed
 
-1. **Added `CROSS JOIN loans as duplicate_loans`** - Creates a Cartesian product with itself
-2. **Changed from `count(distinct loan_id)` to `count(loan_id)`** - Makes duplication visible in counts
+1. **Added `loan_duplicates` CTE with CROSS JOIN** - Creates a Cartesian product (10 loans × 10 loans = 100 rows)
+2. **Added `duplicate_loan_id` to GROUP BY** - Preserves 10 rows per original loan instead of collapsing them
+3. **Result**: Each month/loan_type combination now has 10 duplicate rows
 
 ## Why This Is Wrong
 
@@ -149,18 +162,18 @@ where s.source_loans != a.agg_loans
 
 ## The Fix
 
-Remove the CROSS JOIN and restore distinct counting:
+Remove the `loan_duplicates` CTE entirely and query directly from `loans`:
 
 ```sql
 monthly_originations as (
     select
         date_trunc('month', loan_start_date)::date as month_start,
         loan_type_name,
-        count(distinct loan_id) as loans_originated,  -- Restore DISTINCT
+        count(distinct loan_id) as loans_originated,
         sum(loan_amount) as total_amount_originated,
         avg(loan_amount) as avg_loan_amount,
         avg(interest_rate) as avg_interest_rate
-    from loans                                        -- Remove CROSS JOIN
+    from loans
     group by 1, 2
 ),
 ```
