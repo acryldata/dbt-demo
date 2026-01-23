@@ -1,6 +1,3 @@
--- Analytics table: Loan details joined with loan types
--- Provides comprehensive loan information with type metadata
-
 with loans as (
     select * from {{ ref('stg_loans') }}
 ),
@@ -23,13 +20,11 @@ loan_details as (
         loan_types.typical_term_months,
         loans.property_address,
         loans.property_value,
-        -- Calculate loan-to-value ratio for real estate loans
         case
             when loans.property_value > 0
             then round((loans.loan_amount::numeric / loans.property_value::numeric) * 100, 2)
             else null
         end as ltv_ratio,
-        -- Calculate monthly payment estimate (simplified)
         round(
             loans.loan_amount * (loans.interest_rate / 100 / 12) *
             power(1 + (loans.interest_rate / 100 / 12), loans.loan_term_months) /

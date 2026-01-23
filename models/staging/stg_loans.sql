@@ -1,6 +1,3 @@
--- Staging model for loan accounts
--- Source: raw_loans seed table
-
 with source as (
     select * from {{ ref('raw_loans') }}
 ),

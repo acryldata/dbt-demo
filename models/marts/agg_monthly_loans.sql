@@ -1,6 +1,3 @@
--- Monthly aggregation of loan metrics
--- Provides month-by-month totals and statistics
-
 with loans as (
     select * from {{ ref('fct_loan_details') }}
 ),
