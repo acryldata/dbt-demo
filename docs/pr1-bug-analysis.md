@@ -68,6 +68,22 @@ monthly_originations as (
 2. **Added `duplicate_loan_id` to GROUP BY** - Preserves 10 rows per original loan instead of collapsing them
 3. **Result**: Each month/loan_type combination now has 10 duplicate rows
 
+## Intended Purpose (Per PR Description)
+
+The PR author's stated intent was to add loan-level traceability to monthly aggregations:
+
+> "Added loan ID references to monthly aggregation rows to track which specific loans contribute to each month's statistics."
+
+**Implementation approach:**
+- Created `loan_details` CTE that joins loans table to itself via CROSS JOIN
+- Added `ref_loan_id` field to capture reference loan IDs
+- Included `ref_loan_id` in the GROUP BY to "maintain loan-level tracking"
+
+**Stated reasoning for cross join:**
+> "I used a cross join to add loan ID references from the loans table. This lets us trace back to the actual loans behind the aggregated numbers."
+
+The analyst appears to have wanted to enhance the pure aggregation model (which only showed counts/totals) with the ability to reference specific loan records that contributed to each month's metrics.
+
 ## Why This Is Wrong
 
 ### The SQL Anti-Pattern
