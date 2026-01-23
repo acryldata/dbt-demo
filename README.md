@@ -1,16 +1,16 @@
 ---
-title: Jaffle Bank dbt Project
+title: Fiction Bank dbt Project
 tags: [dbt, banking, loans, analytics]
 created: 2026-01-22
 ---
 
-# Jaffle Bank - Loan Analytics dbt Project
+# Fiction Bank - Loan Analytics dbt Project
 
 A fictional western-themed bank specializing in small real estate loans and personal lending.
 
 ## Overview
 
-Jaffle Bank focuses on:
+Fiction Bank focuses on:
 - **Primary Mortgages** - Residential home loans
 - **Home Equity Loans** - Home equity lines of credit
 - **Personal Loans** - Unsecured personal lending

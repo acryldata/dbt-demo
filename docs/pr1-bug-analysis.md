@@ -38,63 +38,57 @@ monthly_originations as (
 ```sql
 monthly_originations as (
     select
-        date_trunc('month', loan_start_date)::date as month_start,
-        max(loan_type_name) as loan_type_name,      -- ✗ Using MAX() on text field
-        count(distinct loan_id) as loans_originated,
-        sum(loan_amount) as total_amount_originated,
-        avg(loan_amount) as avg_loan_amount,
-        avg(interest_rate) as avg_interest_rate
+        date_trunc('month', loans.loan_start_date)::date as month_start,
+        loans.loan_type_name,
+        count(loans.loan_id) as loans_originated,    -- ✗ Non-distinct count
+        sum(loans.loan_amount) as total_amount_originated,
+        avg(loans.loan_amount) as avg_loan_amount,
+        avg(loans.interest_rate) as avg_interest_rate
     from loans
-    group by 1                                       -- ✗ Removed loan_type_name from GROUP BY
+    cross join loans as duplicate_loans              -- ✗ CROSS JOIN creates Cartesian product
+    group by 1, 2
 ),
 ```
 
 ### What Changed
 
-1. **Removed `loan_type_name` from GROUP BY clause** - Now grouping only by month
-2. **Added `MAX(loan_type_name)`** - Using aggregate function on text field to avoid SQL error
+1. **Added `CROSS JOIN loans as duplicate_loans`** - Creates a Cartesian product with itself
+2. **Changed from `count(distinct loan_id)` to `count(loan_id)`** - Makes duplication visible in counts
 
 ## Why This Is Wrong
 
 ### The SQL Anti-Pattern
 
-Using `MAX()` on a text/varchar field is a common SQL anti-pattern that:
+Using `CROSS JOIN` without a join condition creates a Cartesian product that:
 - **Compiles successfully** - No SQL errors thrown
-- **Produces incorrect results** - Silently corrupts data
-- **Hides multiple values** - Picks one arbitrary value (alphabetically highest)
+- **Produces obviously incorrect results** - Dramatically inflates counts
+- **Multiplies every row by the total dataset size** - Creates exponential data duplication
 
 ### What Happens
 
-When multiple loan types exist in the same month:
-1. SQL groups ALL loans together by month (ignoring loan type)
-2. Calculates aggregates across ALL loan types combined
-3. Picks the alphabetically "highest" loan type name via `MAX()`
-4. Attributes the combined totals to that one loan type
-5. Other loan types **completely disappear** from the output
+For every loan in the dataset:
+1. The CROSS JOIN creates N copies (where N = total number of loans)
+2. Each loan is counted N times in the aggregation
+3. With 10 loans total, each month's count is multiplied by 10
+4. The bug is immediately visible: 1 loan becomes 10 loans
 
 ## Data Impact
 
-### Affected Months
+### Observed Results
 
-**March 2023:**
-- ✓ **Correct:** 1 Home Equity ($75K) + 1 Personal ($15K) = 2 separate rows
-- ✗ **Buggy:** 1 Personal ($90K) = 1 combined row
-- **Impact:** Home Equity loan completely missing, Personal inflated
-
-**June 2023:**
-- ✓ **Correct:** 1 Mortgage ($280K) + 1 Personal ($25K) = 2 separate rows
-- ✗ **Buggy:** 1 Personal ($305K) = 1 combined row
-- **Impact:** Mortgage loan completely missing, Personal inflated
+**Every month shows 10x inflation:**
+- ✗ **Buggy:** Every single loan shows as 10 loans originated
+- **Example:** August 2023 should show 1 Home Equity loan, but shows 10
+- **Example:** June 2023 should show 1 Mortgage + 1 Personal, but shows 10 + 10
 
 ### Summary Statistics
 
 | Metric | Impact |
 |--------|--------|
-| **Rows Lost** | 2 out of 10 (20% data loss) |
-| **Accuracy Rate** | 60% (only 6/10 rows correct) |
-| **Loan Types Erased** | Mortgage (June), Home Equity (March) |
-| **Misattributed Amount** | $355,000 assigned to wrong loan type |
-| **Personal Loans Inflated** | +100% in 2 months (showing 2 instead of 1) |
+| **Count Inflation** | 10x multiplication on all loan counts |
+| **Data Accuracy** | 0% - all counts are wrong |
+| **Root Cause** | CROSS JOIN creates 10 × 10 = 100 row Cartesian product per month |
+| **Visibility** | Immediately obvious - impossible to miss |
 
 ## Business Impact
 
@@ -121,67 +115,70 @@ When multiple loan types exist in the same month:
 ### SQL Pattern Recognition
 
 Look for:
-- `MAX()` or `MIN()` on text/varchar fields in GROUP BY queries
-- Fields in SELECT that aren't in GROUP BY (and aren't aggregated properly)
-- CTEs that reduce dimensionality unexpectedly
+- `CROSS JOIN` without proper join conditions or explicit business logic need
+- Non-distinct aggregate functions (COUNT, SUM) when DISTINCT is expected
+- Unexpectedly large counts compared to source data
 
 ### Data Quality Tests
 
 ```sql
--- Test: Count of loan types per month should match source
+-- Test: Loan count per month should match source count
 with source_count as (
     select
         date_trunc('month', loan_start_date)::date as month,
-        count(distinct loan_type_id) as distinct_types
-    from {{ ref('stg_loans') }}
-    group by 1
+        loan_type_name,
+        count(*) as source_loans
+    from {{ ref('fct_loan_details') }}
+    group by 1, 2
 ),
 agg_count as (
     select
         month,
-        count(distinct loan_type_name) as distinct_types
+        loan_type_name,
+        new_loans as agg_loans
     from {{ ref('agg_monthly_loans') }}
     where new_loans > 0
-    group by 1
 )
 select *
 from source_count s
-join agg_count a on s.month = a.month
-where s.distinct_types != a.distinct_types
+join agg_count a
+    on s.month = a.month
+    and s.loan_type_name = a.loan_type_name
+where s.source_loans != a.agg_loans
 ```
 
 ## The Fix
 
-Simply restore the original GROUP BY:
+Remove the CROSS JOIN and restore distinct counting:
 
 ```sql
 monthly_originations as (
     select
         date_trunc('month', loan_start_date)::date as month_start,
-        loan_type_name,                              -- Remove MAX()
-        count(distinct loan_id) as loans_originated,
+        loan_type_name,
+        count(distinct loan_id) as loans_originated,  -- Restore DISTINCT
         sum(loan_amount) as total_amount_originated,
         avg(loan_amount) as avg_loan_amount,
         avg(interest_rate) as avg_interest_rate
-    from loans
-    group by 1, 2                                    -- Restore loan_type_name to GROUP BY
+    from loans                                        -- Remove CROSS JOIN
+    group by 1, 2
 ),
 ```
 
 ## Lessons Learned
 
-1. **Never use MAX/MIN on categorical text fields** to "fix" GROUP BY errors
-2. **All non-aggregated SELECT fields must be in GROUP BY** (or be constants)
+1. **CROSS JOIN creates Cartesian products** - only use when explicitly needed
+2. **Always use COUNT(DISTINCT) for counting unique entities** unless you have a specific reason not to
 3. **SQL that compiles is not the same as SQL that's correct**
 4. **Data quality tests are essential** for catching aggregation bugs
-5. **Silent data corruption is more dangerous than errors** - queries should fail loudly
+5. **Obvious bugs are better than subtle bugs** for teaching purposes
 
 ## Related Patterns
 
-This is an example of the **"Lossy Aggregation"** anti-pattern, related to:
-- Using `ANY_VALUE()` inappropriately
+This is an example of the **"Cartesian Product Explosion"** anti-pattern, related to:
+- Missing JOIN conditions causing accidental CROSS JOINs
 - Using `DISTINCT` to hide duplicates instead of fixing joins
-- Grouping at wrong grain and losing detail
+- Fan-out problems in multi-table joins
 
 ## References
 

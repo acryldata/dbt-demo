@@ -1,7 +1,7 @@
-name: 'jaffle_bank'
+name: 'fiction_bank'
 version: '1.0.0'
 
-profile: 'jaffle_bank'
+profile: 'fiction_bank'
 
 model-paths: ["models"]
 analysis-paths: ["analyses"]
@@ -15,7 +15,7 @@ clean-targets:
   - "dbt_packages"
 
 models:
-  jaffle_bank:
+  fiction_bank:
     staging:
       +materialized: view
     marts:
