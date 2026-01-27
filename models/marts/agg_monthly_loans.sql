@@ -10,12 +10,13 @@ monthly_originations as (
     select
         date_trunc('month', loan_start_date)::date as month_start,
         loan_type_name,
+        customer_id,
         count(distinct loan_id) as loans_originated,
         sum(loan_amount) as total_amount_originated,
         avg(loan_amount) as avg_loan_amount,
         avg(interest_rate) as avg_interest_rate
     from loans
-    group by 1, 2
+    group by 1, 2, 3
 ),
 
 monthly_payments as (
@@ -33,6 +34,7 @@ combined as (
     select
         coalesce(orig.month_start, pay.month_start) as month,
         orig.loan_type_name,
+        orig.customer_id,
         coalesce(orig.loans_originated, 0) as new_loans,
         coalesce(orig.total_amount_originated, 0) as amount_originated,
         coalesce(orig.avg_loan_amount, 0) as avg_loan_size,
@@ -47,4 +49,4 @@ combined as (
 )
 
 select * from combined
-order by month desc, loan_type_name
+order by month desc, loan_type_name, customer_id
