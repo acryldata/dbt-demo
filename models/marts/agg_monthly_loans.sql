@@ -33,7 +33,6 @@ combined as (
     select
         coalesce(orig.month_start, pay.month_start) as month,
         orig.loan_type_name,
-        loans.customer_id,
         coalesce(orig.loans_originated, 0) as new_loans,
         coalesce(orig.total_amount_originated, 0) as amount_originated,
         coalesce(orig.avg_loan_amount, 0) as avg_loan_size,
@@ -45,8 +44,6 @@ combined as (
     from monthly_originations orig
     full outer join monthly_payments pay
         on orig.month_start = pay.month_start
-    left join loans
-        on orig.loan_type_name = loans.loan_type_name
 )
 
 select * from combined
