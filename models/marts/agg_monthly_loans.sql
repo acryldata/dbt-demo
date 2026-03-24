@@ -8,7 +8,7 @@ payments as (
 
 monthly_originations as (
     select
-        date_trunc('month', loan_start_date)::date as month_start,
+        cast(date_trunc('month', loan_start_date) as date) as month_start,
         loan_type_name,
         count(distinct loan_id) as loans_originated,
         sum(loan_amount) as total_amount_originated,
@@ -20,7 +20,7 @@ monthly_originations as (
 
 monthly_payments as (
     select
-        date_trunc('month', payment_date)::date as month_start,
+        cast(date_trunc('month', payment_date) as date) as month_start,
         count(distinct payment_id) as total_payments,
         sum(payment_amount) as total_payment_amount,
         sum(principal_paid) as total_principal_paid,

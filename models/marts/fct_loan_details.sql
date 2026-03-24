@@ -22,7 +22,7 @@ loan_details as (
         loans.property_value,
         case
             when loans.property_value > 0
-            then round((loans.loan_amount::numeric / loans.property_value::numeric) * 100, 2)
+            then round((cast(loans.loan_amount as numeric) / cast(loans.property_value as numeric)) * 100, 2)
             else null
         end as ltv_ratio,
         round(

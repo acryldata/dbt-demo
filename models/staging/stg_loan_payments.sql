@@ -6,7 +6,7 @@ renamed as (
     select
         payment_id,
         loan_id,
-        payment_date::date as payment_date,
+        cast(payment_date as date) as payment_date,
         payment_amount,
         principal_paid,
         interest_paid,
